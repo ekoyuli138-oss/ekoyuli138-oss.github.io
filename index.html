@@ -698,14 +698,14 @@
             alert(`File Excel berhasil diunduh!\nNama file: Hasil_Koreksi_${studentName.replace(/\s+/g, '_')}.xlsx`);
         }
 
-        // Fungsi export semua hasil ke Excel
+        // Fungsi export semua hasil ke Excel (DARI ARRAY STUDENTS)
         function exportToExcelAll() {
             if (students.length === 0) {
                 alert('Belum ada siswa yang dimasukkan!');
                 return;
             }
 
-            // Buat worksheet baru
+            // Buat worksheet baru dari array students
             const ws_data = [
                 ["No", "Nama Siswa", "PG", "Isian", "Uraian", "Total"]
             ];
@@ -721,6 +721,7 @@
                 ]);
             });
 
+            // Buat workbook
             const ws = XLSX.utils.aoa_to_sheet(ws_data);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Semua Siswa");
