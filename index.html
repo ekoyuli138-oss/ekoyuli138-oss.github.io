@@ -132,6 +132,32 @@
         .hidden {
             display: none;
         }
+        .student-card {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            background: #fff;
+        }
+        .score-badge {
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 15px;
+            display: inline-block;
+            margin-left: 10px;
+        }
+        .score-good {
+            background: #28a745;
+            color: white;
+        }
+        .score-mid {
+            background: #ffc107;
+            color: #212529;
+        }
+        .score-bad {
+            background: #dc3545;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -201,12 +227,18 @@
             </div>
             <button id="btnOcr" onclick="startOCR()" disabled>🔍 Mulai Koreksi Otomatis</button>
             <button onclick="resetAll()">🗑️ Reset</button>
+            <button onclick="addStudent()" id="btnAddStudent" disabled>➕ Tambah Siswa</button>
+            <button onclick="exportToExcel()" id="btnExportAll" disabled>⬇️ Export Semua Hasil</button>
         </div>
 
         <!-- STEP 3: HASIL -->
         <div class="section hidden" id="step3">
             <h2>📊 Hasil Koreksi Otomatis</h2>
             <div id="result"></div>
+            <div id="studentList" style="margin-top: 20px;">
+                <h3>📋 Daftar Siswa</h3>
+                <!-- Daftar siswa akan diisi otomatis -->
+            </div>
             <div id="analysisTableContainer" style="display:none;">
                 <h3>📈 Tabel Analisis Per Butir Soal</h3>
                 <table id="analysisTable">
@@ -248,6 +280,10 @@
         let kunciUraian = [];
         let ocrResult = null;
         let studentName = "Siswa Tidak Dikenal";
+        let students = []; // Simpan semua siswa
+        let uploadedCount = 0; // Hitung jumlah upload
+        const MAX_UPLOADS = 5; // Maksimal 5 gambar
+        const MAX_STUDENTS = 50; // Maksimal 50 siswa
 
         // Fungsi generate template
         function generateTemplate() {
@@ -289,6 +325,9 @@
 
                     // Enable OCR button
                     document.getElementById('btnOcr').disabled = false;
+
+                    // Reset tombol tambah siswa
+                    document.getElementById('btnAddStudent').disabled = true;
                 }
                 reader.readAsDataURL(input.files[0]);
             }
@@ -423,12 +462,45 @@
                 resultDiv.style.display = 'block';
                 progress.style.display = 'none';
 
+                // Simpan ke array students
+                students.push({
+                    nama: studentName,
+                    jawabanPG: jawabanPG,
+                    jawabanIsian: jawabanIsian,
+                    jawabanUraian: jawabanUraian,
+                    scorePG: scorePG,
+                    scoreIsian: scoreIsian,
+                    scoreUraian: scoreUraian,
+                    totalScore: totalScore
+                });
+
+                // Update daftar siswa
+                updateStudentList();
+
                 // Generate analysis table
                 generateAnalysisTable(studentName, jawabanPG, jawabanIsian, jawabanUraian, scorePG, scoreIsian, scoreUraian, totalScore);
 
                 // Show step 3
                 document.getElementById('step2').classList.add('hidden');
                 document.getElementById('step3').classList.remove('hidden');
+
+                // Aktifkan tombol "Tambah Siswa"
+                document.getElementById('btnAddStudent').disabled = false;
+
+                // Batasi jumlah upload
+                uploadedCount++;
+                if (uploadedCount >= MAX_UPLOADS) {
+                    document.getElementById('fotoLembar').disabled = true;
+                    document.getElementById('btnOcr').disabled = true;
+                    alert(`Anda telah mencapai batas upload maksimal ${MAX_UPLOADS} gambar.`);
+                }
+
+                // Batasi jumlah siswa
+                if (students.length >= MAX_STUDENTS) {
+                    document.getElementById('btnAddStudent').disabled = true;
+                    document.getElementById('btnExportAll').disabled = false;
+                    alert(`Anda telah mencapai batas maksimal ${MAX_STUDENTS} siswa.`);
+                }
 
             } catch (err) {
                 resultDiv.innerHTML = `<div class="error">❌ Terjadi kesalahan saat membaca foto: ${err.message}</div>`;
@@ -520,6 +592,42 @@
             analysisTableContainer.style.display = 'block';
         }
 
+        // Fungsi update student list
+        function updateStudentList() {
+            const list = document.getElementById('studentList');
+            list.innerHTML = '<h3>📋 Daftar Siswa</h3>';
+            students.forEach((s, idx) => {
+                const badgeClass = s.totalScore >= 80 ? 'score-good' : s.totalScore >= 60 ? 'score-mid' : 'score-bad';
+                list.innerHTML += `
+                    <div class="student-card">
+                        <strong>${idx + 1}. ${s.nama}</strong>
+                        <span class="score-badge ${badgeClass}">${s.totalScore}/100</span>
+                        <br>PG: ${s.scorePG}, Isian: ${s.scoreIsian}, Uraian: ${s.scoreUraian}
+                    </div>
+                `;
+            });
+        }
+
+        // Fungsi add student (upload ulang)
+        function addStudent() {
+            if (students.length >= MAX_STUDENTS) {
+                alert(`Anda telah mencapai batas maksimal ${MAX_STUDENTS} siswa.`);
+                return;
+            }
+
+            // Reset form
+            document.getElementById('fotoLembar').value = '';
+            document.getElementById('preview').innerHTML = '';
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('analysisTableContainer').style.display = 'none';
+            document.getElementById('btnOcr').disabled = true;
+            document.getElementById('btnAddStudent').disabled = true;
+
+            // Show step 2
+            document.getElementById('step3').classList.add('hidden');
+            document.getElementById('step2').classList.remove('hidden');
+        }
+
         // Fungsi reset all
         function resetAll() {
             document.getElementById('step1').classList.remove('hidden');
@@ -538,11 +646,15 @@
             document.getElementById('result').style.display = 'none';
             document.getElementById('analysisTableContainer').style.display = 'none';
             document.getElementById('btnOcr').disabled = true;
+            document.getElementById('btnAddStudent').disabled = true;
+            document.getElementById('btnExportAll').disabled = true;
             ocrResult = null;
             studentName = "Siswa Tidak Dikenal";
+            students = [];
+            uploadedCount = 0;
         }
 
-        // Fungsi export to Excel (BERFUNGSI!)
+        // Fungsi export to Excel (per siswa)
         function exportToExcel() {
             const table = document.getElementById('analysisTable');
             if (!table) {
@@ -558,6 +670,40 @@
 
             // Tampilkan pesan sukses
             alert(`File Excel berhasil diunduh!\nNama file: Hasil_Koreksi_${studentName.replace(/\s+/g, '_')}.xlsx`);
+        }
+
+        // Fungsi export semua hasil ke Excel
+        function exportToExcelAll() {
+            if (students.length === 0) {
+                alert('Belum ada siswa yang dimasukkan!');
+                return;
+            }
+
+            // Buat worksheet baru
+            const ws_data = [
+                ["No", "Nama Siswa", "PG", "Isian", "Uraian", "Total"]
+            ];
+
+            students.forEach((s, idx) => {
+                ws_data.push([
+                    idx + 1,
+                    s.nama,
+                    s.scorePG,
+                    s.scoreIsian,
+                    s.scoreUraian,
+                    s.totalScore
+                ]);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(ws_data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Semua Siswa");
+
+            // Unduh file Excel
+            XLSX.writeFile(wb, `Hasil_Koreksi_Semua_Siswa.xlsx`);
+
+            // Tampilkan pesan sukses
+            alert(`File Excel semua siswa berhasil diunduh!\nNama file: Hasil_Koreksi_Semua_Siswa.xlsx`);
         }
     </script>
 </body>
